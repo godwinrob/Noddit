@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 
 interface Favorite {
@@ -11,24 +11,26 @@ interface Favorite {
 }
 
 export default function Nav() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { isSignedIn, user } = useUser();
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [favorites, setFavorites] = useState<Favorite[]>([]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isSignedIn && user) {
       fetchFavorites();
     }
-  }, [isAuthenticated, user]);
+  }, [isSignedIn, user]);
 
   const fetchFavorites = async () => {
     if (!user) return;
 
     try {
+      // Use Clerk username - we'll sync this with our backend
+      const username = user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
       const data = await api.get<Favorite[]>(
-        `/api/favorites/${user.username}`,
+        `/api/favorites/${username}`,
         true
       );
       setFavorites(data);
@@ -62,7 +64,7 @@ export default function Nav() {
                 Communities
               </Link>
 
-              {isAuthenticated && favorites.length > 0 && (
+              {isSignedIn && favorites.length > 0 && (
                 <div className="relative group">
                   <button className="text-gray-300 hover:text-white transition">
                     Favorites ▾
@@ -95,7 +97,7 @@ export default function Nav() {
           </form>
 
           <div className="flex items-center gap-4">
-            {isAuthenticated ? (
+            {isSignedIn ? (
               <>
                 <Link
                   href="/submit"
@@ -109,30 +111,29 @@ export default function Nav() {
                     href="/profile"
                     className="text-gray-300 hover:text-white transition"
                   >
-                    u/{user?.username}
+                    u/{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0]}
                   </Link>
-                  <button
-                    onClick={logout}
-                    className="text-gray-400 hover:text-white transition text-sm"
-                  >
-                    Logout
-                  </button>
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-10 h-10"
+                      }
+                    }}
+                  />
                 </div>
               </>
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="text-gray-300 hover:text-white transition"
-                >
-                  Log In
-                </Link>
-                <Link
-                  href="/register"
-                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded transition"
-                >
-                  Sign Up
-                </Link>
+                <SignInButton mode="modal">
+                  <button className="text-gray-300 hover:text-white transition">
+                    Log In
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded transition">
+                    Sign Up
+                  </button>
+                </SignUpButton>
               </>
             )}
           </div>

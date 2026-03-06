@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { useUser } from "@clerk/nextjs";
 import PostCard from "@/components/PostCard";
 
 interface Post {
@@ -39,7 +39,7 @@ export default function SubnodditPage() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn } = useUser();
 
   useEffect(() => {
     fetchData();
@@ -62,9 +62,10 @@ export default function SubnodditPage() {
       setPosts(postsData);
 
       // Check if favorited (if logged in)
-      if (isAuthenticated && user) {
+      if (isSignedIn && user) {
+        const username = user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
         const favorites = await api.get<Favorite[]>(
-          `/api/favorites/${user.username}`,
+          `/api/favorites/${username}`,
           true
         );
         setIsFavorited(
@@ -79,7 +80,7 @@ export default function SubnodditPage() {
   };
 
   const toggleFavorite = async () => {
-    if (!isAuthenticated || !user || !subnoddit) return;
+    if (!isSignedIn || !user || !subnoddit) return;
 
     try {
       if (isFavorited) {
@@ -91,7 +92,7 @@ export default function SubnodditPage() {
         await api.post(
           "/api/favorites/create/subnoddit",
           {
-            username: user.username,
+            username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '',
             subnodditName: subnoddit.subnodditName,
           },
           true
@@ -132,7 +133,7 @@ export default function SubnodditPage() {
             <p className="text-gray-400">{subnoddit.subnodditDescription}</p>
           </div>
 
-          {isAuthenticated && (
+          {isSignedIn && (
             <button
               onClick={toggleFavorite}
               className={`px-4 py-2 rounded font-semibold transition ${

@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-go
+    env:
+      JWT_SECRET: dGVzdC1zZWNyZXQtZm9yLWNpLXBpcGVsaW5l
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend-go/go.sum
+
+      - name: Run tests
+        run: go test ./... -v -count=1
+
+  frontend:
+    name: Next.js Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noddit-next
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: noddit-next/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

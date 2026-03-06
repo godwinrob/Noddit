@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -118,7 +119,10 @@ func (h *Handler) Register(c *gin.Context) {
 
 	// Set default role if not provided
 	if user.Role == "" {
-		user.Role = "user"
+		user.Role = os.Getenv("DEFAULT_USER_ROLE")
+		if user.Role == "" {
+			user.Role = "user" // Fallback if env var not set
+		}
 	}
 
 	// Insert user
@@ -148,22 +152,25 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	// Add default favorite (subnoddit with id 1 - "Cats")
-	_, err = tx.Exec(`
-		INSERT INTO favorites (user_id, sn_id)
-		SELECT $1, 1
-		WHERE NOT EXISTS (
-			SELECT 1 FROM favorites WHERE user_id = $1 AND sn_id = 1
-		)`,
-		userID,
-	)
+	// Add default favorite subnoddit from environment variable
+	defaultFavID := os.Getenv("DEFAULT_FAVORITE_SUBNODDIT_ID")
+	if defaultFavID != "" {
+		_, err = tx.Exec(`
+			INSERT INTO favorites (user_id, sn_id)
+			SELECT $1, $2
+			WHERE NOT EXISTS (
+				SELECT 1 FROM favorites WHERE user_id = $1 AND sn_id = $2
+			)`,
+			userID, defaultFavID,
+		)
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.RegistrationResult{
-			Success: false,
-			Errors:  []string{"Failed to add default favorite"},
-		})
-		return
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.RegistrationResult{
+				Success: false,
+				Errors:  []string{"Failed to add default favorite"},
+			})
+			return
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

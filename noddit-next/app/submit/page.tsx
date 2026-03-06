@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 
 interface Subnoddit {
@@ -20,12 +20,12 @@ export default function SubmitPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
+    if (!isSignedIn) {
+      router.push("/");
       return;
     }
 
@@ -43,7 +43,7 @@ export default function SubmitPage() {
     };
 
     fetchSubnoddits();
-  }, [isAuthenticated, router]);
+  }, [isSignedIn, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +75,7 @@ export default function SubmitPage() {
           title,
           body,
           imageAddress: imageAddress || null,
-          username: user?.username,
+          username: user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '',
           subnodditId: parseInt(subnodditId),
         },
         true
@@ -97,7 +97,7 @@ export default function SubmitPage() {
     }
   };
 
-  if (!isAuthenticated) {
+  if (!isSignedIn) {
     return null; // Will redirect
   }
 

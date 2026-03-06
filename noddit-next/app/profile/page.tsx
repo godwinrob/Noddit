@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import PostCard from "@/components/PostCard";
 
@@ -19,7 +19,8 @@ interface Post {
 }
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
 
   const [posts, setPosts] = useState<Post[]>([]);
@@ -28,20 +29,21 @@ export default function ProfilePage() {
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
+    if (!isSignedIn) {
+      router.push("/");
       return;
     }
 
     fetchUserPosts();
-  }, [isAuthenticated, user, router]);
+  }, [isSignedIn, user, router]);
 
   const fetchUserPosts = async () => {
     if (!user) return;
 
     try {
+      const username = user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
       const data = await api.get<Post[]>(
-        `/api/public/post/user/${user.username}`
+        `/api/public/post/user/${username}`
       );
       setPosts(data);
     } catch (error) {
@@ -55,22 +57,22 @@ export default function ProfilePage() {
     if (!user || !newUsername.trim()) return;
 
     try {
+      const username = user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
       await api.put(
-        `/api/user/update/username/${user.username}`,
+        `/api/user/update/username/${username}`,
         { newUsername },
         true
       );
 
-      alert("Username updated! Please log in again.");
-      logout();
-      router.push("/login");
+      alert("Username updated! Please sign in again.");
+      signOut();
     } catch (error) {
       console.error("Failed to update username:", error);
       alert("Failed to update username");
     }
   };
 
-  if (!isAuthenticated || !user) {
+  if (!isSignedIn || !user) {
     return null; // Will redirect
   }
 
@@ -114,12 +116,7 @@ export default function ProfilePage() {
 
           <div className="mb-6">
             <div className="text-sm text-gray-400">Username</div>
-            <div className="text-lg font-semibold">{user.username}</div>
-          </div>
-
-          <div className="mb-6">
-            <div className="text-sm text-gray-400">Role</div>
-            <div className="text-lg font-semibold capitalize">{user.role}</div>
+            <div className="text-lg font-semibold">{user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0]}</div>
           </div>
 
           <div className="space-y-3">
@@ -172,7 +169,7 @@ export default function ProfilePage() {
           </div>
 
           <button
-            onClick={logout}
+            onClick={() => signOut()}
             className="w-full mt-6 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded transition"
           >
             Logout

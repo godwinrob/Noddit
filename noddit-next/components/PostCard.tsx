@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/lib/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import ReplyForm from "./ReplyForm";
 
@@ -37,7 +37,7 @@ export default function PostCard({
   showFullBody = false,
   onRefresh,
 }: PostCardProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn } = useUser();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [currentVote, setCurrentVote] = useState<string | null>(null);
@@ -50,11 +50,11 @@ export default function PostCard({
   }, [post.postId, user]);
 
   const checkVoteStatus = async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isSignedIn || !user) return;
 
     try {
       const votes = await api.get<Vote[]>(`/api/public/post/votes/${post.postId}`);
-      const userVote = votes.find((v) => v.username === user.username);
+      const userVote = votes.find((v) => v.username === user?.username);
 
       if (userVote) {
         setHasVoted(true);
@@ -66,16 +66,17 @@ export default function PostCard({
   };
 
   const checkDeletePermission = async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isSignedIn || !user) return;
 
     // User is author
-    if (user.username === post.username) {
+    if (user?.username === post.username) {
       setCanDelete(true);
       return;
     }
 
-    // User is admin/super_admin
-    if (user.role === "admin" || user.role === "super_admin") {
+    // User is admin/super_admin (check Clerk publicMetadata)
+    const role = (user?.publicMetadata as Record<string, unknown>)?.role as string | undefined;
+    if (role === "admin" || role === "super_admin") {
       setCanDelete(true);
       return;
     }
@@ -85,7 +86,7 @@ export default function PostCard({
       const moderators = await api.get<{ username: string }[]>(
         `/api/public/moderators/${post.subnodditName}`
       );
-      if (moderators.some((m) => m.username === user.username)) {
+      if (moderators.some((m) => m.username === user?.username)) {
         setCanDelete(true);
       }
     } catch (error) {
@@ -94,14 +95,14 @@ export default function PostCard({
   };
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
-    if (!isAuthenticated || !user || hasVoted) return;
+    if (!isSignedIn || !user || hasVoted) return;
 
     try {
       await api.post(
         "/api/post/vote",
         {
           postId: post.postId,
-          username: user.username,
+          username: user?.username,
           vote: voteType,
         },
         true
@@ -212,7 +213,7 @@ export default function PostCard({
 
           {/* Actions */}
           <div className="mt-3 flex gap-4 text-sm text-gray-400">
-            {showFullBody && isAuthenticated && (
+            {showFullBody && isSignedIn && (
               <button
                 onClick={() => setShowReplyForm(!showReplyForm)}
                 className="hover:text-white transition"

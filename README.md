@@ -1,3 +1,5 @@
+![Tests](https://github.com/godwinrob/noddit/actions/workflows/test.yml/badge.svg)
+
 # Noddit - Modernized Message Board
 
 A Reddit-inspired message board application, fully modernized with **Go backend** and **Next.js frontend**.
@@ -11,6 +13,7 @@ This project has been **completely modernized** from the 2019 Tech Elevator caps
 - ✅ **Full Feature Parity** - All original features ported and working
 - ✅ **Docker + Tilt** - Modern development workflow with hot reload
 - ✅ **100% API Compatible** - Same endpoints, same auth, same database schema
+- ✅ **CI Pipeline** - GitHub Actions running 160+ tests on every push/PR
 - ✅ **Better Performance** - Go's concurrency + Next.js optimizations
 - ✅ **Type Safety** - TypeScript throughout the frontend
 - ✅ **Modern UI** - Tailwind CSS with responsive dark mode design
@@ -250,7 +253,26 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for:
 docker-compose up --build
 ```
 
-## Testing & Usage
+## CI / Testing
+
+Tests run automatically via **GitHub Actions** on every push and PR to `master`.
+
+| Job | Tests | What's covered |
+|-----|-------|----------------|
+| **Go Tests** | 104 | Handlers, auth, middleware, routing |
+| **Next.js Tests** | 58 | Components, pages, API client, auth |
+
+Run tests locally:
+
+```bash
+# Backend
+cd backend-go && go test ./... -v -count=1
+
+# Frontend
+cd noddit-next && npm test
+```
+
+## Usage
 
 ### Quick Test Drive
 
@@ -306,7 +328,8 @@ curl http://localhost:8080/api/public/popularposts
 - [x] Community creation and moderation
 
 ### Future Enhancements 🚧
-- [ ] Add automated tests (backend + frontend)
+- [x] Add automated tests (104 Go + 58 Next.js)
+- [x] CI pipeline (GitHub Actions)
 - [ ] Real-time updates (WebSockets)
 - [ ] User avatars with upload
 - [ ] Rich text editor for posts

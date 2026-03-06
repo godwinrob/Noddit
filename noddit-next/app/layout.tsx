@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/lib/auth-context";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkTokenProvider } from "@/components/ClerkTokenProvider";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
@@ -16,12 +17,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased min-h-screen">
-        <AuthProvider>
-          <Nav />
-          <main className="container mx-auto px-4 py-8 max-w-6xl">
-            {children}
-          </main>
-        </AuthProvider>
+        <ClerkProvider>
+          <ClerkTokenProvider>
+            <Nav />
+            <main className="container mx-auto px-4 py-8 max-w-6xl">
+              {children}
+            </main>
+          </ClerkTokenProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

@@ -1,20 +1,40 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Validate API URL is configured
+if (!API_URL) {
+  console.error(
+    "NEXT_PUBLIC_API_URL is not set. Please set it in your .env.local file."
+  );
+  if (typeof window !== "undefined") {
+    // Only throw in browser, not during build
+    throw new Error(
+      "API URL not configured. Check your environment variables."
+    );
+  }
+}
+
+// Global token getter - will be set by Clerk
+let clerkTokenGetter: (() => Promise<string | null>) | null = null;
+
+export function setClerkTokenGetter(getter: () => Promise<string | null>) {
+  clerkTokenGetter = getter;
+}
 
 class ApiClient {
-  private getToken(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("token");
+  private async getToken(): Promise<string | null> {
+    if (clerkTokenGetter) {
+      return await clerkTokenGetter();
     }
     return null;
   }
 
-  private getHeaders(includeAuth: boolean = false): HeadersInit {
+  private async getHeaders(includeAuth: boolean = false): Promise<HeadersInit> {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
 
     if (includeAuth) {
-      const token = this.getToken();
+      const token = await this.getToken();
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -26,7 +46,7 @@ class ApiClient {
   async get<T>(path: string, auth: boolean = false): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {
       method: "GET",
-      headers: this.getHeaders(auth),
+      headers: await this.getHeaders(auth),
     });
 
     if (!response.ok) {
@@ -39,7 +59,7 @@ class ApiClient {
   async post<T>(path: string, data: unknown, auth: boolean = false): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {
       method: "POST",
-      headers: this.getHeaders(auth),
+      headers: await this.getHeaders(auth),
       body: JSON.stringify(data),
     });
 
@@ -54,7 +74,7 @@ class ApiClient {
   async put<T>(path: string, data: unknown, auth: boolean = true): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {
       method: "PUT",
-      headers: this.getHeaders(auth),
+      headers: await this.getHeaders(auth),
       body: JSON.stringify(data),
     });
 
@@ -68,7 +88,7 @@ class ApiClient {
   async delete(path: string, auth: boolean = true): Promise<void> {
     const response = await fetch(`${API_URL}${path}`, {
       method: "DELETE",
-      headers: this.getHeaders(auth),
+      headers: await this.getHeaders(auth),
     });
 
     if (!response.ok) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import ReplyForm from "./ReplyForm";
 
@@ -32,7 +32,7 @@ export default function Comment({
   topLevelId,
   onRefresh,
 }: CommentProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isSignedIn } = useUser();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
   const [currentVote, setCurrentVote] = useState<string | null>(null);
@@ -43,13 +43,13 @@ export default function Comment({
   }, [comment.postId, user]);
 
   const checkVoteStatus = async () => {
-    if (!isAuthenticated || !user) return;
+    if (!isSignedIn || !user) return;
 
     try {
       const votes = await api.get<Vote[]>(
         `/api/public/post/votes/${comment.postId}`
       );
-      const userVote = votes.find((v) => v.username === user.username);
+      const userVote = votes.find((v) => v.username === user?.username);
 
       if (userVote) {
         setHasVoted(true);
@@ -61,14 +61,14 @@ export default function Comment({
   };
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
-    if (!isAuthenticated || !user || hasVoted) return;
+    if (!isSignedIn || !user || hasVoted) return;
 
     try {
       await api.post(
         "/api/post/vote",
         {
           postId: comment.postId,
-          username: user.username,
+          username: user?.username,
           vote: voteType,
         },
         true
@@ -133,7 +133,7 @@ export default function Comment({
             {comment.body}
           </p>
 
-          {isAuthenticated && (
+          {isSignedIn && (
             <button
               onClick={() => setShowReplyForm(!showReplyForm)}
               className="text-sm text-gray-400 hover:text-white transition"

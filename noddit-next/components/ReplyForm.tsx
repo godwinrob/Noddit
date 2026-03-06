@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 
 interface ReplyFormProps {
@@ -21,7 +21,7 @@ export default function ReplyForm({
 }: ReplyFormProps) {
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user } = useUser();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +34,7 @@ export default function ReplyForm({
         `/${subnodditName}/${topLevelId}/createreply`,
         {
           body,
-          username: user.username,
+          username: user?.username,
           parentPostId,
           topLevelId,
           subnodditId,

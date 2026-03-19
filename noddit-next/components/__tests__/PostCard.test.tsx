@@ -14,6 +14,14 @@ jest.mock("next/link", () => {
   };
 });
 
+jest.mock("@/components/ClerkTokenProvider", () => ({
+  useNodditUser: jest.fn(() => ({
+    username: "testuser",
+    userId: 1,
+    isReady: true,
+  })),
+}));
+
 jest.mock("@/lib/api", () => ({
   api: {
     get: jest.fn().mockResolvedValue([]),
@@ -75,7 +83,7 @@ describe("PostCard", () => {
   });
 
   test("upvote button calls API and updates score", async () => {
-    api.post.mockResolvedValueOnce({});
+    api.post.mockResolvedValueOnce({ vote: "upvote", score: 43 });
     const user = userEvent.setup();
 
     render(<PostCard post={mockPost} />);
@@ -102,7 +110,7 @@ describe("PostCard", () => {
   });
 
   test("vote buttons disabled after voting", async () => {
-    api.post.mockResolvedValueOnce({});
+    api.post.mockReturnValueOnce(new Promise(() => {})); // Never resolves — keeps isVoting=true
     const user = userEvent.setup();
 
     render(<PostCard post={mockPost} />);

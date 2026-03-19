@@ -2,6 +2,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Comment from "../Comment";
 
+jest.mock("@/components/ClerkTokenProvider", () => ({
+  useNodditUser: jest.fn(() => ({
+    username: "testuser",
+    userId: 1,
+    isReady: true,
+  })),
+}));
+
 jest.mock("@/lib/api", () => ({
   api: {
     get: jest.fn().mockResolvedValue([]),

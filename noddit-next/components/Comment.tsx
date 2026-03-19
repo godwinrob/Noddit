@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 import ReplyForm from "./ReplyForm";
 
 interface CommentProps {
@@ -33,10 +34,11 @@ export default function Comment({
   onRefresh,
 }: CommentProps) {
   const { user, isSignedIn } = useUser();
+  const { username: nodditUsername } = useNodditUser();
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [hasVoted, setHasVoted] = useState(false);
   const [currentVote, setCurrentVote] = useState<string | null>(null);
   const [score, setScore] = useState(comment.postScore);
+  const [isVoting, setIsVoting] = useState(false);
 
   useEffect(() => {
     checkVoteStatus();
@@ -49,36 +51,34 @@ export default function Comment({
       const votes = await api.get<Vote[]>(
         `/api/public/post/votes/${comment.postId}`
       );
-      const userVote = votes.find((v) => v.username === user?.username);
-
-      if (userVote) {
-        setHasVoted(true);
-        setCurrentVote(userVote.vote);
-      }
+      const userVote = votes.find((v) => v.username === nodditUsername);
+      setCurrentVote(userVote?.vote ?? null);
     } catch (error) {
       console.error("Failed to check vote status:", error);
     }
   };
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
-    if (!isSignedIn || !user || hasVoted) return;
+    if (!isSignedIn || !user || isVoting) return;
+    setIsVoting(true);
 
     try {
-      await api.post(
+      const result = await api.post<{ vote: string | null; score: number }>(
         "/api/post/vote",
         {
           postId: comment.postId,
-          username: user?.username,
+          username: nodditUsername,
           vote: voteType,
         },
         true
       );
 
-      setHasVoted(true);
-      setCurrentVote(voteType);
-      setScore(score + (voteType === "upvote" ? 1 : -1));
+      setCurrentVote(result.vote);
+      setScore(result.score);
     } catch (error) {
       console.error("Failed to vote:", error);
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -94,11 +94,11 @@ export default function Comment({
         <div className="flex flex-col items-center gap-1">
           <button
             onClick={() => handleVote("upvote")}
-            disabled={hasVoted}
+            disabled={!isSignedIn || isVoting}
             className={`text-xl transition ${
               currentVote === "upvote"
                 ? "text-orange-500"
-                : hasVoted
+                : !isSignedIn
                 ? "text-gray-600 cursor-not-allowed"
                 : "text-gray-400 hover:text-orange-500"
             }`}
@@ -108,11 +108,11 @@ export default function Comment({
           <span className="font-bold">{score}</span>
           <button
             onClick={() => handleVote("downvote")}
-            disabled={hasVoted}
+            disabled={!isSignedIn || isVoting}
             className={`text-xl transition ${
               currentVote === "downvote"
                 ? "text-blue-500"
-                : hasVoted
+                : !isSignedIn
                 ? "text-gray-600 cursor-not-allowed"
                 : "text-gray-400 hover:text-blue-500"
             }`}

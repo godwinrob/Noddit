@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 import ReplyForm from "./ReplyForm";
 
 interface Post {
@@ -38,10 +39,11 @@ export default function PostCard({
   onRefresh,
 }: PostCardProps) {
   const { user, isSignedIn } = useUser();
+  const { username: nodditUsername } = useNodditUser();
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [hasVoted, setHasVoted] = useState(false);
   const [currentVote, setCurrentVote] = useState<string | null>(null);
   const [score, setScore] = useState(post.postScore);
+  const [isVoting, setIsVoting] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
 
   useEffect(() => {
@@ -54,12 +56,8 @@ export default function PostCard({
 
     try {
       const votes = await api.get<Vote[]>(`/api/public/post/votes/${post.postId}`);
-      const userVote = votes.find((v) => v.username === user?.username);
-
-      if (userVote) {
-        setHasVoted(true);
-        setCurrentVote(userVote.vote);
-      }
+      const userVote = votes.find((v) => v.username === nodditUsername);
+      setCurrentVote(userVote?.vote ?? null);
     } catch (error) {
       console.error("Failed to check vote status:", error);
     }
@@ -69,7 +67,7 @@ export default function PostCard({
     if (!isSignedIn || !user) return;
 
     // User is author
-    if (user?.username === post.username) {
+    if (nodditUsername === post.username) {
       setCanDelete(true);
       return;
     }
@@ -86,7 +84,7 @@ export default function PostCard({
       const moderators = await api.get<{ username: string }[]>(
         `/api/public/moderators/${post.subnodditName}`
       );
-      if (moderators.some((m) => m.username === user?.username)) {
+      if (moderators.some((m) => m.username === nodditUsername)) {
         setCanDelete(true);
       }
     } catch (error) {
@@ -95,24 +93,26 @@ export default function PostCard({
   };
 
   const handleVote = async (voteType: "upvote" | "downvote") => {
-    if (!isSignedIn || !user || hasVoted) return;
+    if (!isSignedIn || !user || isVoting) return;
+    setIsVoting(true);
 
     try {
-      await api.post(
+      const result = await api.post<{ vote: string | null; score: number }>(
         "/api/post/vote",
         {
           postId: post.postId,
-          username: user?.username,
+          username: nodditUsername,
           vote: voteType,
         },
         true
       );
 
-      setHasVoted(true);
-      setCurrentVote(voteType);
-      setScore(score + (voteType === "upvote" ? 1 : -1));
+      setCurrentVote(result.vote);
+      setScore(result.score);
     } catch (error) {
       console.error("Failed to vote:", error);
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -140,11 +140,11 @@ export default function PostCard({
         <div className="flex flex-col items-center gap-1">
           <button
             onClick={() => handleVote("upvote")}
-            disabled={hasVoted}
+            disabled={!isSignedIn || isVoting}
             className={`text-2xl transition ${
               currentVote === "upvote"
                 ? "text-orange-500"
-                : hasVoted
+                : !isSignedIn
                 ? "text-gray-600 cursor-not-allowed"
                 : "text-gray-400 hover:text-orange-500"
             }`}
@@ -154,11 +154,11 @@ export default function PostCard({
           <span className="font-bold text-lg">{score}</span>
           <button
             onClick={() => handleVote("downvote")}
-            disabled={hasVoted}
+            disabled={!isSignedIn || isVoting}
             className={`text-2xl transition ${
               currentVote === "downvote"
                 ? "text-blue-500"
-                : hasVoted
+                : !isSignedIn
                 ? "text-gray-600 cursor-not-allowed"
                 : "text-gray-400 hover:text-blue-500"
             }`}

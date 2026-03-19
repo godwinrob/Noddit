@@ -27,6 +27,14 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+jest.mock("@/components/ClerkTokenProvider", () => ({
+  useNodditUser: jest.fn(() => ({
+    username: "testuser",
+    userId: 1,
+    isReady: true,
+  })),
+}));
+
 const { api } = require("@/lib/api");
 
 beforeEach(() => {

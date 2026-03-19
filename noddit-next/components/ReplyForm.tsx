@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 
 interface ReplyFormProps {
   subnodditName: string;
@@ -22,10 +23,11 @@ export default function ReplyForm({
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
+  const { username: nodditUsername } = useNodditUser();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!body.trim() || !user) return;
+    if (!body.trim() || !user || !nodditUsername) return;
 
     setLoading(true);
 
@@ -34,7 +36,7 @@ export default function ReplyForm({
         `/${subnodditName}/${topLevelId}/createreply`,
         {
           body,
-          username: user?.username,
+          username: nodditUsername,
           parentPostId,
           topLevelId,
           subnodditId,

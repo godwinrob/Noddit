@@ -16,6 +16,14 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
+jest.mock("@/components/ClerkTokenProvider", () => ({
+  useNodditUser: jest.fn(() => ({
+    username: "testuser",
+    userId: 1,
+    isReady: true,
+  })),
+}));
+
 jest.mock("@/lib/api", () => ({
   api: {
     get: jest.fn().mockResolvedValue([]),

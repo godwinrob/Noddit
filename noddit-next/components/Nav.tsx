@@ -5,30 +5,30 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 
 interface Favorite {
   subnodditName: string;
 }
 
 export default function Nav() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
+  const { username } = useNodditUser();
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [favorites, setFavorites] = useState<Favorite[]>([]);
 
   useEffect(() => {
-    if (isSignedIn && user) {
+    if (isSignedIn && username) {
       fetchFavorites();
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn, username]);
 
   const fetchFavorites = async () => {
-    if (!user) return;
+    if (!username) return;
 
     try {
-      // Use Clerk username - we'll sync this with our backend
-      const username = user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || '';
       const data = await api.get<Favorite[]>(
         `/api/favorites/${username}`,
         true
@@ -111,7 +111,7 @@ export default function Nav() {
                     href="/profile"
                     className="text-gray-300 hover:text-white transition"
                   >
-                    u/{user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0]}
+                    u/{username}
                   </Link>
                   <UserButton
                     appearance={{

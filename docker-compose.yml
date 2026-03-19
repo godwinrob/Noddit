@@ -24,6 +24,7 @@ services:
 
   # Go Backend API
   backend:
+    image: noddit-backend
     build:
       context: ./backend-go
       dockerfile: Dockerfile
@@ -39,6 +40,7 @@ services:
       DB_SSLMODE: disable
       JWT_SECRET: T9GKvpb3oX5qqo3sd6+OJ2iqldexr+sGcW8NbNiWYLjLvLv9hlDNr2siDo4AjSYOyOqXsxmMX+/Uh3LhP+x2ww==
       JWT_EXPIRATION_HOURS: 6
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
     ports:
       - "8080:8080"
     depends_on:
@@ -50,10 +52,12 @@ services:
 
   # Next.js Frontend
   frontend:
+    image: noddit-frontend
     build:
       context: ./noddit-next
       dockerfile: Dockerfile
       args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
     container_name: noddit-frontend
     environment:

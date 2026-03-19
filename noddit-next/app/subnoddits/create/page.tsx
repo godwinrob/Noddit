@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 
 export default function CreateSubnodditPage() {
   const [subnodditName, setSubnodditName] = useState("");
@@ -11,7 +12,8 @@ export default function CreateSubnodditPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
+  const { username: nodditUsername } = useNodditUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function CreateSubnodditPage() {
         {
           subnodditName: formattedName,
           subnodditDescription,
-          username: user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '',
+          username: nodditUsername,
         },
         true
       );

@@ -1,32 +1,28 @@
-# Multi-stage build for Next.js frontend
-
-# Dependencies stage
+# Stage 1: Install dependencies
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-# Install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Builder stage
+# Stage 2: Build the application
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Set environment variable for build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Clerk keys must be available at build time for NEXT_PUBLIC_ inlining
-ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
+# NEXT_PUBLIC_ vars must be present at build time for client-side inlining
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
-# Build the application
 RUN npm run build
 
-# Runner stage
+# Stage 3: Production runner
 FROM node:22-alpine AS runner
 WORKDIR /app
 
@@ -36,13 +32,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-# Change ownership
-RUN chown -R nextjs:nodejs /app
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 

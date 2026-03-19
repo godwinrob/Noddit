@@ -169,3 +169,227 @@ func TestDeleteUser_DBError(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
+
+// --- SyncUser tests ---
+
+func TestSyncUser_CheckOnly_ExistingUser(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	rows := sqlmock.NewRows([]string{"id", "username"}).AddRow(1, "testuser")
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("test@example.com").
+		WillReturnRows(rows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email":     "test@example.com",
+		"checkOnly": true,
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, false, resp["isNew"])
+	assert.Equal(t, "testuser", resp["username"])
+}
+
+func TestSyncUser_CheckOnly_NewUser(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("new@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email":     "new@example.com",
+		"checkOnly": true,
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, true, resp["isNew"])
+}
+
+func TestSyncUser_Create_Success(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("new@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	rows := sqlmock.NewRows([]string{"id"}).AddRow(42)
+	mock.ExpectQuery("INSERT INTO users").
+		WithArgs("cooluser", "new@example.com").
+		WillReturnRows(rows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email":    "new@example.com",
+		"username": "cooluser",
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, false, resp["isNew"])
+	assert.Equal(t, "cooluser", resp["username"])
+}
+
+func TestSyncUser_Create_MissingUsername(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("new@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email": "new@example.com",
+	})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestSyncUser_Create_InvalidUsername(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("new@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email":    "new@example.com",
+		"username": "_bad",
+	})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestSyncUser_Create_ReservedUsername(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id, username FROM users WHERE LOWER").
+		WithArgs("new@example.com").
+		WillReturnError(sql.ErrNoRows)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"email":    "new@example.com",
+		"username": "admin",
+	})
+
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestSyncUser_MissingEmail(t *testing.T) {
+	h, _, err := setupMockDB()
+	require.NoError(t, err)
+
+	router := setupTestRouter()
+	router.POST("/api/user/sync", h.SyncUser)
+
+	w := performRequest(router, "POST", "/api/user/sync", map[string]interface{}{
+		"username": "test",
+	})
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- CheckUsernameAvailable tests ---
+
+func TestCheckUsernameAvailable_Available(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs("newuser").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+	router := setupTestRouter()
+	router.GET("/api/public/user/available/:username", h.CheckUsernameAvailable)
+
+	w := performRequest(router, "GET", "/api/public/user/available/newuser", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, true, resp["available"])
+}
+
+func TestCheckUsernameAvailable_Taken(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs("existinguser").
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+
+	router := setupTestRouter()
+	router.GET("/api/public/user/available/:username", h.CheckUsernameAvailable)
+
+	w := performRequest(router, "GET", "/api/public/user/available/existinguser", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, false, resp["available"])
+}
+
+func TestCheckUsernameAvailable_InvalidFormat(t *testing.T) {
+	h, _, err := setupMockDB()
+	require.NoError(t, err)
+
+	router := setupTestRouter()
+	router.GET("/api/public/user/available/:username", h.CheckUsernameAvailable)
+
+	w := performRequest(router, "GET", "/api/public/user/available/_bad", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, false, resp["available"])
+}
+
+func TestCheckUsernameAvailable_Reserved(t *testing.T) {
+	h, _, err := setupMockDB()
+	require.NoError(t, err)
+
+	router := setupTestRouter()
+	router.GET("/api/public/user/available/:username", h.CheckUsernameAvailable)
+
+	w := performRequest(router, "GET", "/api/public/user/available/admin", nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	err = parseResponse(w, &resp)
+	require.NoError(t, err)
+	assert.Equal(t, false, resp["available"])
+	assert.Equal(t, "This username is reserved", resp["reason"])
+}

@@ -35,6 +35,14 @@ func TestVotePost_NewUpvote(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
+	// Response queries
+	mock.ExpectQuery("SELECT post_score FROM posts").
+		WithArgs(int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"post_score"}).AddRow(2))
+	mock.ExpectQuery("SELECT vote FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"vote"}).AddRow("upvote"))
+
 	router := setupTestRouter()
 	router.POST("/vote", h.VotePost)
 
@@ -67,6 +75,14 @@ func TestVotePost_NewDownvote(t *testing.T) {
 		WithArgs(-1, int64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
+
+	// Response queries
+	mock.ExpectQuery("SELECT post_score FROM posts").
+		WithArgs(int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"post_score"}).AddRow(0))
+	mock.ExpectQuery("SELECT vote FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"vote"}).AddRow("downvote"))
 
 	router := setupTestRouter()
 	router.POST("/vote", h.VotePost)
@@ -103,6 +119,58 @@ func TestVotePost_ChangeVote(t *testing.T) {
 		WithArgs(2, int64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
+
+	// Response queries
+	mock.ExpectQuery("SELECT post_score FROM posts").
+		WithArgs(int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"post_score"}).AddRow(3))
+	mock.ExpectQuery("SELECT vote FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"vote"}).AddRow("upvote"))
+
+	router := setupTestRouter()
+	router.POST("/vote", h.VotePost)
+
+	w := performRequest(router, "POST", "/vote", models.Vote{
+		PostID:   1,
+		Username: "testuser",
+		Vote:     "upvote",
+	})
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestVotePost_ToggleOff(t *testing.T) {
+	h, mock, err := setupMockDB()
+	require.NoError(t, err)
+
+	mock.ExpectQuery("SELECT id FROM users").
+		WithArgs("testuser").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+
+	mock.ExpectBegin()
+	// Existing upvote found, same vote submitted — should toggle off
+	mock.ExpectQuery("SELECT vote FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"vote"}).AddRow("upvote"))
+	// Delete the vote
+	mock.ExpectExec("DELETE FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	// Subtract the old vote value (1) from score
+	mock.ExpectExec("UPDATE posts SET post_score").
+		WithArgs(1, int64(1)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	// Response queries — vote no longer exists
+	mock.ExpectQuery("SELECT post_score FROM posts").
+		WithArgs(int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"post_score"}).AddRow(1))
+	mock.ExpectQuery("SELECT vote FROM post_votes").
+		WithArgs(int64(1), int64(1)).
+		WillReturnError(sql.ErrNoRows)
 
 	router := setupTestRouter()
 	router.POST("/vote", h.VotePost)

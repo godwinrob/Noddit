@@ -3,9 +3,22 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/godwinrob/noddit/internal/models"
+)
+
+var (
+	usernameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_]{2,19}$`)
+	reservedNames = map[string]bool{
+		"admin":     true,
+		"moderator": true,
+		"noddit":    true,
+		"system":    true,
+		"deleted":   true,
+	}
 )
 
 // GetUser returns a user profile
@@ -131,6 +144,124 @@ func (h *Handler) UpdateAvatar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, u)
+}
+
+// SyncUser ensures a Clerk-authenticated user exists in the database.
+// Called by the frontend after sign-in as a post-auth hook.
+//
+// Modes:
+//   - checkOnly=true: look up by email, return {isNew:true} or {isNew:false, username, userId}
+//   - checkOnly=false (default): create the user with the given username
+func (h *Handler) SyncUser(c *gin.Context) {
+	var req struct {
+		Username  string `json:"username"`
+		Email     string `json:"email"`
+		CheckOnly bool   `json:"checkOnly"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	if req.Email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
+		return
+	}
+
+	// Look up existing user by email (stable Clerk identity)
+	var userID int64
+	var username string
+	err := h.db.QueryRow(
+		"SELECT id, username FROM users WHERE LOWER(email_address) = LOWER($1)", req.Email,
+	).Scan(&userID, &username)
+
+	if err == nil {
+		// User exists
+		c.JSON(http.StatusOK, gin.H{"isNew": false, "username": username, "userId": userID})
+		return
+	}
+	if err != sql.ErrNoRows {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// User does not exist
+	if req.CheckOnly {
+		c.JSON(http.StatusOK, gin.H{"isNew": true})
+		return
+	}
+
+	// Create mode — username is required
+	if req.Username == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username is required"})
+		return
+	}
+	if !usernameRegex.MatchString(req.Username) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username must be 3-20 characters, alphanumeric or underscore, and cannot start with underscore"})
+		return
+	}
+	if reservedNames[strings.ToLower(req.Username)] {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username is reserved"})
+		return
+	}
+
+	// Insert user
+	err = h.db.QueryRow(`
+		INSERT INTO users (username, password, salt, role, email_address, join_date)
+		VALUES (LOWER($1), 'clerk-managed', 'clerk-managed', 'user', $2, NOW())
+		RETURNING id`, req.Username, req.Email).Scan(&userID)
+	if err != nil {
+		// Check if it's a unique constraint violation (username taken)
+		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+			c.JSON(http.StatusConflict, gin.H{"error": "Username is already taken"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"isNew": false, "username": strings.ToLower(req.Username), "userId": userID})
+}
+
+// CheckUsernameAvailable checks if a username is available for registration.
+func (h *Handler) CheckUsernameAvailable(c *gin.Context) {
+	username := c.Param("username")
+
+	// Validate format
+	if !usernameRegex.MatchString(username) {
+		c.JSON(http.StatusOK, gin.H{
+			"available": false,
+			"reason":    "Must be 3-20 characters, letters/numbers/underscores only, cannot start with underscore",
+		})
+		return
+	}
+
+	// Check reserved names
+	if reservedNames[strings.ToLower(username)] {
+		c.JSON(http.StatusOK, gin.H{
+			"available": false,
+			"reason":    "This username is reserved",
+		})
+		return
+	}
+
+	// Check DB uniqueness (case-insensitive)
+	var exists bool
+	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username) = LOWER($1))", username).Scan(&exists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if exists {
+		c.JSON(http.StatusOK, gin.H{
+			"available": false,
+			"reason":    "Username is already taken",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"available": true})
 }
 
 // DeleteUser deletes a user (admin only)

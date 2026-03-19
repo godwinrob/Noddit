@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
 
 interface Subnoddit {
   subnodditId: number;
@@ -20,7 +21,8 @@ export default function SubmitPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
+  const { username: nodditUsername } = useNodditUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function SubmitPage() {
           title,
           body,
           imageAddress: imageAddress || null,
-          username: user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '',
+          username: nodditUsername,
           subnodditId: parseInt(subnodditId),
         },
         true

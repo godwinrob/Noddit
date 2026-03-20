@@ -112,8 +112,8 @@ gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command="
   sudo sh get-docker.sh
   sudo usermod -aG docker \$USER
 
-  echo 'Installing Docker Compose...'
-  sudo apt install docker-compose -y
+  echo 'Installing Docker Compose plugin...'
+  sudo apt install docker-compose-plugin -y
 
   echo 'Enabling Docker...'
   sudo systemctl enable docker

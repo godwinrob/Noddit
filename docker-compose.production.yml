@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database - Optimized for 128MB
   postgres:
@@ -18,8 +16,7 @@ services:
       -c max_connections=20
       -c random_page_cost=1.1
       -c effective_io_concurrency=200
-    ports:
-      - "5432:5432"
+    # No host port exposure - only accessible via noddit-network
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend-go/migrations:/docker-entrypoint-initdb.d

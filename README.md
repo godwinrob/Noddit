@@ -330,15 +330,31 @@ curl http://localhost:8080/api/public/popularposts
 ### Future Enhancements 🚧
 - [x] Add automated tests (104 Go + 58 Next.js)
 - [x] CI pipeline (GitHub Actions)
+- [x] GCP deployment guide ($0/month free tier)
 - [ ] Real-time updates (WebSockets)
 - [ ] User avatars with upload
 - [ ] Rich text editor for posts
 - [ ] Notifications system
 - [ ] Email verification
 - [ ] Password reset flow
-- [ ] Deploy to cloud (Vercel + Fly.io)
 - [ ] Performance optimization
 - [ ] Mobile app (React Native)
+
+## Deployment
+
+Deploy Noddit to Google Cloud Platform for **$0/month** using the free tier:
+
+- **[DEPLOYMENT-QUICKSTART.md](./docs/DEPLOYMENT-QUICKSTART.md)** - ⚡ Deploy in 10 minutes
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Complete deployment guide
+- **[DEPLOYMENT-CHECKLIST.md](./docs/DEPLOYMENT-CHECKLIST.md)** - Deployment checklist
+- **[DEPLOYMENT-SUMMARY.md](./docs/DEPLOYMENT-SUMMARY.md)** - Implementation summary
+- **[scripts/README.md](./scripts/README.md)** - Deployment scripts documentation
+
+**Quick deployment:**
+```bash
+bash scripts/gcp-setup.sh  # Create free GCP VM
+# Follow prompts, then push to GitHub for automatic deployments
+```
 
 ## Documentation
 

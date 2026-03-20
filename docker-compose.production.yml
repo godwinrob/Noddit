@@ -1,0 +1,98 @@
+services:
+  # PostgreSQL Database - Optimized for 128MB
+  postgres:
+    image: postgres:16-alpine
+    container_name: noddit-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: userdb
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c effective_cache_size=256MB
+      -c maintenance_work_mem=16MB
+      -c work_mem=2MB
+      -c max_connections=20
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    # No host port exposure - only accessible via noddit-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend-go/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - noddit-network
+    restart: unless-stopped
+    mem_limit: 128m
+    mem_reservation: 64m
+
+  # Go Backend API - Optimized for 256MB
+  backend:
+    image: noddit-backend
+    build:
+      context: ./backend-go
+      dockerfile: Dockerfile
+    container_name: noddit-backend
+    environment:
+      PORT: 8080
+      FRONTEND_URL: http://${EXTERNAL_IP}:8081
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: userdb
+      DB_SSLMODE: disable
+      DB_MAX_OPEN_CONNS: 10
+      DB_MAX_IDLE_CONNS: 2
+      DB_CONN_MAX_LIFETIME: 5m
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_HOURS: 6
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - noddit-network
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128m
+
+  # Next.js Frontend - Optimized for 512MB
+  frontend:
+    image: noddit-frontend
+    build:
+      context: ./noddit-next
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://${EXTERNAL_IP}:8080
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    container_name: noddit-frontend
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=384"
+      NEXT_PUBLIC_API_URL: http://${EXTERNAL_IP}:8080
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - backend
+    networks:
+      - noddit-network
+    restart: unless-stopped
+    mem_limit: 512m
+    mem_reservation: 256m
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  noddit-network:
+    driver: bridge

@@ -1,0 +1,109 @@
+name: Deploy to GCP e2-micro
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  VM_PROJECT_PATH: /home/deploy/noddit
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Production VM
+    env:
+      SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER }}
+      VM_PORT: ${{ secrets.VM_PORT }}
+
+    steps:
+      - name: Validate secrets
+        if: ${{ env.SSH_KEY == '' || env.VM_HOST == '' || env.VM_USER == '' || env.VM_PORT == '' }}
+        run: |
+          echo "::error::Missing required secrets. Configure SSH_PRIVATE_KEY, VM_HOST, VM_USER, and VM_PORT in repository settings."
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync files to VM
+        env:
+          RSYNC_RSH: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.VM_PORT }}"
+          DEST: "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${{ env.VM_PROJECT_PATH }}"
+        run: |
+          RSYNC_EXCLUDES="--exclude node_modules --exclude .git --exclude .env --exclude .env.local --exclude .env.production --exclude .next --exclude dist --exclude build"
+
+          # Sync backend-go directory
+          rsync -avz --delete $RSYNC_EXCLUDES backend-go/ "$DEST/backend-go/"
+
+          # Sync noddit-next directory
+          rsync -avz --delete $RSYNC_EXCLUDES noddit-next/ "$DEST/noddit-next/"
+
+          # Sync root config files
+          rsync -avz docker-compose.production.yml Makefile "$DEST/"
+
+      - name: Deploy to VM
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p "$VM_PORT" "$VM_USER@$VM_HOST" << 'ENDSSH'
+            set -e
+
+            cd /home/deploy/noddit
+
+            # Always use the latest production compose file
+            cp docker-compose.production.yml docker-compose.yml
+
+            echo "Stopping existing containers..."
+            docker compose down || true
+
+            echo "Cleaning up old images..."
+            docker image prune -af --filter "until=24h" || true
+
+            echo "Building containers..."
+            docker compose build --no-cache
+
+            echo "Starting containers..."
+            docker compose up -d
+
+            echo "Waiting for containers to be healthy..."
+            sleep 15
+
+            echo "Container status:"
+            docker compose ps
+
+            echo "Recent logs:"
+            docker compose logs --tail=50
+          ENDSSH
+
+      - name: Health check
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 20
+
+          echo "Checking backend health..."
+          curl -sf --max-time 10 "http://$VM_HOST:8080/api/public/subnoddits" || {
+            echo "::error::Backend health check failed"
+            exit 1
+          }
+          echo "Backend is healthy"
+
+          echo "Checking frontend health..."
+          curl -sf --max-time 10 "http://$VM_HOST:8081/" || {
+            echo "::error::Frontend health check failed"
+            exit 1
+          }
+          echo "Frontend is healthy"
+          echo "Deployment completed successfully"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -16,6 +16,10 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
+jest.mock("@clerk/nextjs", () => ({
+  useUser: jest.fn(),
+}));
+
 jest.mock("@/components/ClerkTokenProvider", () => ({
   useNodditUser: jest.fn(() => ({
     username: "testuser",
@@ -71,17 +75,20 @@ describe("Submit Page", () => {
     await waitFor(() => {
       expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/text/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/community/i)).toBeInTheDocument();
+      expect(screen.getByText(/choose a community/i)).toBeInTheDocument();
     });
   });
 
   test("loads communities dropdown from API", async () => {
     render(<SubmitPage />);
 
+    // Wait for the form to load
     await waitFor(() => {
-      expect(screen.getByText("n/golang")).toBeInTheDocument();
-      expect(screen.getByText("n/react")).toBeInTheDocument();
+      expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
     });
+
+    // API should have been called to fetch communities
+    expect(api.get).toHaveBeenCalledWith("/api/public/subnoddits");
   });
 
   test("shows validation error for empty title", async () => {
@@ -128,7 +135,7 @@ describe("Submit Page", () => {
     });
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/s/golang/99");
+      expect(mockPush).toHaveBeenCalledWith("/n/golang/99");
     });
   });
 

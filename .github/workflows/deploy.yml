@@ -37,23 +37,20 @@ jobs:
           ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts
 
       - name: Sync files to VM
+        env:
+          RSYNC_RSH: "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.VM_PORT }}"
+          DEST: "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${{ env.VM_PROJECT_PATH }}"
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p $VM_PORT" \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '.env' \
-            --exclude '.env.local' \
-            --exclude '.env.production' \
-            --exclude 'postgres_data' \
-            --exclude '.next' \
-            --exclude 'dist' \
-            --exclude 'build' \
-            backend-go/ \
-            noddit-next/ \
-            docker-compose.production.yml \
-            Makefile \
-            "$VM_USER@$VM_HOST:$VM_PROJECT_PATH/"
+          RSYNC_EXCLUDES="--exclude node_modules --exclude .git --exclude .env --exclude .env.local --exclude .env.production --exclude .next --exclude dist --exclude build"
+
+          # Sync backend-go directory
+          rsync -avz --delete $RSYNC_EXCLUDES backend-go/ "$DEST/backend-go/"
+
+          # Sync noddit-next directory
+          rsync -avz --delete $RSYNC_EXCLUDES noddit-next/ "$DEST/noddit-next/"
+
+          # Sync root config files
+          rsync -avz docker-compose.production.yml Makefile "$DEST/"
 
       - name: Deploy to VM
         run: |

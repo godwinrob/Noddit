@@ -2,10 +2,19 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import { useNodditUser } from "@/components/ClerkTokenProvider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Favorite {
   subnodditName: string;
@@ -52,8 +61,15 @@ export default function Nav() {
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-2xl font-bold text-orange-500">
-              Noddit
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/assets/img/Noddit - Dark.png"
+                alt="Noddit Logo"
+                width={120}
+                height={40}
+                className="h-10 w-auto"
+                priority
+              />
             </Link>
 
             <div className="hidden md:flex gap-4">
@@ -65,54 +81,58 @@ export default function Nav() {
               </Link>
 
               {isSignedIn && favorites.length > 0 && (
-                <div className="relative group">
-                  <button className="text-gray-300 hover:text-white transition">
-                    Favorites ▾
-                  </button>
-                  <div className="absolute left-0 mt-2 w-48 bg-gray-800 rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <Button variant="ghost" className="text-gray-300 hover:text-white">
+                      Favorites ▾
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-48 bg-gray-800 border-gray-700">
                     {favorites.map((fav) => (
-                      <Link
-                        key={fav.subnodditName}
-                        href={`/s/${fav.subnodditName}`}
-                        className="block px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white"
-                      >
-                        n/{fav.subnodditName}
-                      </Link>
+                      <DropdownMenuItem key={fav.subnodditName}>
+                        <Link
+                          href={`/s/${fav.subnodditName}`}
+                          className="text-gray-300 hover:text-white cursor-pointer w-full"
+                        >
+                          n/{fav.subnodditName}
+                        </Link>
+                      </DropdownMenuItem>
                     ))}
-                  </div>
-                </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="hidden lg:block flex-1 max-w-md mx-8">
-            <input
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search communities..."
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+              className="w-full bg-gray-800 border-gray-700 focus:border-orange-500"
             />
           </form>
 
           <div className="flex items-center gap-4">
             {isSignedIn ? (
               <>
-                <Link
-                  href="/submit"
-                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded transition"
-                >
-                  Create Post
+                <Link href="/submit">
+                  <Button className="bg-orange-600 hover:bg-orange-700">
+                    Create Post
+                  </Button>
                 </Link>
 
                 <div className="flex items-center gap-3">
-                  <Link
-                    href="/profile"
-                    className="text-gray-300 hover:text-white transition"
-                  >
-                    u/{username}
-                  </Link>
+                  {username && (
+                    <Link
+                      href="/profile"
+                      className="text-gray-300 hover:text-white transition"
+                    >
+                      u/{username}
+                    </Link>
+                  )}
                   <UserButton
                     appearance={{
                       elements: {
@@ -125,14 +145,14 @@ export default function Nav() {
             ) : (
               <>
                 <SignInButton mode="modal">
-                  <button className="text-gray-300 hover:text-white transition">
+                  <Button variant="ghost" className="text-gray-300 hover:text-white">
                     Log In
-                  </button>
+                  </Button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded transition">
+                  <Button className="bg-orange-600 hover:bg-orange-700">
                     Sign Up
-                  </button>
+                  </Button>
                 </SignUpButton>
               </>
             )}

@@ -9,8 +9,8 @@ import (
 // User represents a user in the system
 type User struct {
 	ID            int64          `json:"id"`
-	Username      string         `json:"username" binding:"required"`
-	Password      string         `json:"password,omitempty" binding:"required"`
+	Username      string         `json:"username" binding:"required,max=20"`
+	Password      string         `json:"password,omitempty" binding:"required,max=100"`
 	ConfirmPassword string       `json:"confirmPassword,omitempty"`
 	Salt          string         `json:"-"` // Never send to client
 	Role          string         `json:"role"`
@@ -29,9 +29,9 @@ type Post struct {
 	SubnodditID    int64          `json:"subnodditId" binding:"required"`
 	SubnodditName  string         `json:"subnodditName,omitempty"`
 	UserID         int64          `json:"userId"`
-	Username       string         `json:"username" binding:"required"`
-	Title          string         `json:"title" binding:"required"`
-	Body           string         `json:"body" binding:"required"`
+	Username       string         `json:"username" binding:"required,max=20"`
+	Title          string         `json:"title" binding:"required,min=1,max=300"`
+	Body           string         `json:"body" binding:"required,min=1,max=10000"`
 	ImageAddress   sql.NullString `json:"imageAddress"`
 	CreatedDate    time.Time      `json:"createdDate"`
 	PostScore      int64          `json:"postScore"`
@@ -41,8 +41,8 @@ type Post struct {
 // Subnoddit represents a subnoddit (like a subreddit)
 type Subnoddit struct {
 	SubnodditID          int64  `json:"subnodditId"`
-	SubnodditName        string `json:"subnodditName" binding:"required"`
-	SubnodditDescription string `json:"subnodditDescription" binding:"required"`
+	SubnodditName        string `json:"subnodditName" binding:"required,min=3,max=50"`
+	SubnodditDescription string `json:"subnodditDescription" binding:"required,min=1,max=500"`
 	Username             string `json:"username,omitempty"`
 	PostID               sql.NullInt64 `json:"postId,omitempty"`
 }
@@ -86,6 +86,22 @@ type LoginRequest struct {
 // TokenResponse represents the JWT token response
 type TokenResponse struct {
 	Token string `json:"token"`
+}
+
+// UpdateUsernameRequest represents a request to update username
+type UpdateUsernameRequest struct {
+	NewUsername string `json:"newUsername" binding:"required,max=20"`
+}
+
+// UpdateNameRequest represents a request to update name
+type UpdateNameRequest struct {
+	FirstName sql.NullString `json:"firstName"`
+	LastName  sql.NullString `json:"lastName"`
+}
+
+// UpdateAvatarRequest represents a request to update avatar
+type UpdateAvatarRequest struct {
+	AvatarAddress sql.NullString `json:"avatarAddress"`
 }
 
 // MarshalJSON customizes JSON marshaling for Post to handle nullable fields

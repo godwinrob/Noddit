@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
@@ -36,9 +37,11 @@ func ValidateClerkToken(tokenString string) (*ClerkClaims, error) {
 	}
 
 	// Step 3: Verify the token with the JWK
+	// Add 60 seconds of leeway to handle clock skew between Docker containers and Clerk servers
 	claims, err := jwt.Verify(ctx, &jwt.VerifyParams{
-		Token: tokenString,
-		JWK:   jwk,
+		Token:  tokenString,
+		JWK:    jwk,
+		Leeway: 60 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify Clerk token: %w", err)

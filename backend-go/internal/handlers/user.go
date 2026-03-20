@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/godwinrob/noddit/internal/models"
+	"github.com/lib/pq"
 )
 
 var (
@@ -48,9 +50,22 @@ func (h *Handler) GetUser(c *gin.Context) {
 func (h *Handler) UpdateEmail(c *gin.Context) {
 	username := c.Param("username")
 
+	// Verify ownership: authenticated user must match the username being updated
+	authUsername, exists := c.Get("username")
+	if !exists || strings.ToLower(authUsername.(string)) != strings.ToLower(username) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own account"})
+		return
+	}
+
 	var email string
 	if err := c.ShouldBindJSON(&email); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Validate email length
+	if len(email) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email must be 100 characters or less"})
 		return
 	}
 
@@ -72,8 +87,15 @@ func (h *Handler) UpdateEmail(c *gin.Context) {
 func (h *Handler) UpdateUsername(c *gin.Context) {
 	username := c.Param("username")
 
-	var u models.User
-	if err := c.ShouldBindJSON(&u); err != nil {
+	// Verify ownership: authenticated user must match the username being updated
+	authUsername, exists := c.Get("username")
+	if !exists || strings.ToLower(authUsername.(string)) != strings.ToLower(username) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own account"})
+		return
+	}
+
+	var req models.UpdateUsernameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
@@ -82,7 +104,7 @@ func (h *Handler) UpdateUsername(c *gin.Context) {
 		UPDATE users
 		SET username = $1
 		WHERE UPPER(username) = UPPER($2)
-	`, u.NewUsername, username)
+	`, req.NewUsername, username)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update username"})
@@ -96,18 +118,36 @@ func (h *Handler) UpdateUsername(c *gin.Context) {
 func (h *Handler) UpdateName(c *gin.Context) {
 	username := c.Param("username")
 
-	var u models.User
-	if err := c.ShouldBindJSON(&u); err != nil {
+	// Verify ownership: authenticated user must match the username being updated
+	authUsername, exists := c.Get("username")
+	if !exists || strings.ToLower(authUsername.(string)) != strings.ToLower(username) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own account"})
+		return
+	}
+
+	var req models.UpdateNameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
+	// Validate name lengths (sql.NullString doesn't support binding validation)
+	if req.FirstName.Valid && len(req.FirstName.String) > 50 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "First name must be 50 characters or less"})
+		return
+	}
+	if req.LastName.Valid && len(req.LastName.String) > 50 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Last name must be 50 characters or less"})
+		return
+	}
+
+	var u models.User
 	err := h.db.QueryRow(`
 		UPDATE users
 		SET first_name = $1, last_name = $2
 		WHERE UPPER(username) = UPPER($3)
 		RETURNING id, username, role, avatar_address, first_name, last_name, email_address, join_date
-	`, u.FirstName, u.LastName, username).Scan(
+	`, req.FirstName, req.LastName, username).Scan(
 		&u.ID, &u.Username, &u.Role, &u.AvatarAddress,
 		&u.FirstName, &u.LastName, &u.EmailAddress, &u.JoinDate)
 
@@ -123,18 +163,32 @@ func (h *Handler) UpdateName(c *gin.Context) {
 func (h *Handler) UpdateAvatar(c *gin.Context) {
 	username := c.Param("username")
 
-	var u models.User
-	if err := c.ShouldBindJSON(&u); err != nil {
+	// Verify ownership: authenticated user must match the username being updated
+	authUsername, exists := c.Get("username")
+	if !exists || strings.ToLower(authUsername.(string)) != strings.ToLower(username) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own account"})
+		return
+	}
+
+	var req models.UpdateAvatarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
+	// Validate avatar URL length
+	if req.AvatarAddress.Valid && len(req.AvatarAddress.String) > 500 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Avatar URL must be 500 characters or less"})
+		return
+	}
+
+	var u models.User
 	err := h.db.QueryRow(`
 		UPDATE users
 		SET avatar_address = $1
 		WHERE UPPER(username) = UPPER($2)
 		RETURNING id, username, role, avatar_address, first_name, last_name, email_address, join_date
-	`, u.AvatarAddress, username).Scan(
+	`, req.AvatarAddress, username).Scan(
 		&u.ID, &u.Username, &u.Role, &u.AvatarAddress,
 		&u.FirstName, &u.LastName, &u.EmailAddress, &u.JoinDate)
 
@@ -211,8 +265,9 @@ func (h *Handler) SyncUser(c *gin.Context) {
 		VALUES (LOWER($1), 'clerk-managed', 'clerk-managed', 'user', $2, NOW())
 		RETURNING id`, req.Username, req.Email).Scan(&userID)
 	if err != nil {
-		// Check if it's a unique constraint violation (username taken)
-		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "unique constraint") {
+		// Check if it's a unique constraint violation using PostgreSQL error code
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" { // unique_violation
 			c.JSON(http.StatusConflict, gin.H{"error": "Username is already taken"})
 			return
 		}

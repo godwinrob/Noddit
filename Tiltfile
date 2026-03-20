@@ -37,7 +37,7 @@ if 'postgres' in resources:
         'postgres',
         labels=['database'],
         links=[
-            link('postgres://postgres:postgres1@localhost:5432/userdb', 'Database Connection'),
+            link('postgres://postgres:****@localhost:5432/userdb', 'Database Connection'),
         ],
     )
 
@@ -136,7 +136,7 @@ print("""
 ╠══════════════════════════════════════════════════════════╣
 ║  Backend:   http://localhost:8080                         ║
 ║  Frontend:  http://localhost:8081                         ║
-║  Database:  postgres://postgres:postgres1@localhost:5432  ║
+║  Database:  postgres://postgres:****@localhost:5432       ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Press SPACE to open the Tilt UI                          ║
 ║  Press 'q' to quit                                        ║

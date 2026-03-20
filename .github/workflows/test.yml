@@ -54,6 +54,7 @@ jobs:
         working-directory: noddit-next
     env:
       NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -67,4 +68,12 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./noddit-next/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false

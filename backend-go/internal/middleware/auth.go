@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/godwinrob/noddit/pkg/auth"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // Context keys for storing user info
@@ -57,30 +56,6 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Note: Clerk doesn't have "roles" by default, we'll need to use metadata or organizations
 		c.Set(ContextKeyUsername, username)
 		c.Set(ContextKeyRole, defaultRole) // Default role, can be enhanced with Clerk metadata
-
-		c.Next()
-	}
-}
-
-// OptionalAuthMiddleware validates JWT tokens if present but doesn't require them
-// Useful for endpoints that show different data for authenticated vs anonymous users
-func OptionalAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token, err := extractToken(c)
-		if err != nil {
-			// No token or invalid format - continue as anonymous user
-			c.Next()
-			return
-		}
-
-		// Try to validate token, but don't block if invalid
-		claims, err := auth.ValidateToken(token)
-		if err == nil {
-			// Valid token - store user info
-			c.Set(ContextKeyUsername, claims.Username)
-			c.Set(ContextKeyRole, claims.Role)
-		}
-		// If invalid, just continue without user info
 
 		c.Next()
 	}
@@ -214,17 +189,12 @@ func extractToken(c *gin.Context) (string, error) {
 	return parts[1], nil
 }
 
-// categorizeTokenError provides user-friendly error messages based on JWT error type
+// categorizeTokenError provides user-friendly error messages based on Clerk errors
 func categorizeTokenError(err error) string {
-	if errors.Is(err, jwt.ErrTokenExpired) {
+	// For Clerk errors, provide generic message (don't leak internal details)
+	errStr := err.Error()
+	if strings.Contains(errStr, "expired") {
 		return "Token has expired"
 	}
-	if errors.Is(err, jwt.ErrTokenMalformed) {
-		return "Malformed token"
-	}
-	if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-		return "Invalid token signature"
-	}
-	// Generic message for other errors (don't leak internal details)
 	return "Invalid or expired token"
 }

@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 interface ReplyFormProps {
   subnodditName: string;
@@ -22,10 +26,11 @@ export default function ReplyForm({
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
+  const { username: nodditUsername } = useNodditUser();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!body.trim() || !user) return;
+    if (!body.trim() || !user || !nodditUsername) return;
 
     setLoading(true);
 
@@ -34,7 +39,7 @@ export default function ReplyForm({
         `/${subnodditName}/${topLevelId}/createreply`,
         {
           body,
-          username: user?.username,
+          username: nodditUsername,
           parentPostId,
           topLevelId,
           subnodditId,
@@ -43,10 +48,11 @@ export default function ReplyForm({
       );
 
       setBody("");
+      toast.success("Reply posted successfully!");
       onSuccess();
     } catch (error) {
       console.error("Failed to post reply:", error);
-      alert("Failed to post reply");
+      toast.error("Failed to post reply. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -54,24 +60,24 @@ export default function ReplyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <textarea
+      <Textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="What are your thoughts?"
         rows={4}
         maxLength={2000}
-        className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+        className="w-full bg-gray-800 border-gray-700 focus:border-orange-500 resize-none"
         required
       />
       <div className="flex justify-between items-center">
         <span className="text-sm text-gray-400">{body.length}/2000</span>
-        <button
+        <Button
           type="submit"
           disabled={loading || !body.trim()}
-          className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 text-white font-semibold py-2 px-6 rounded transition"
+          className="bg-orange-600 hover:bg-orange-700"
         >
           {loading ? "Posting..." : "Reply"}
-        </button>
+        </Button>
       </div>
     </form>
   );

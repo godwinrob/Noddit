@@ -47,26 +47,40 @@ func (h *Handler) VotePost(c *gin.Context) {
 	err = tx.QueryRow("SELECT vote FROM post_votes WHERE post_id = $1 AND user_id = $2", v.PostID, userID).Scan(&existingVote)
 
 	if err == nil {
-		// User has already voted - update the vote
-		_, err = tx.Exec("UPDATE post_votes SET vote = $1 WHERE post_id = $2 AND user_id = $3", v.Vote, v.PostID, userID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update vote"})
-			return
-		}
-
-		// Adjust score based on vote change
 		oldVoteValue := 0
 		if existingVote == "upvote" {
 			oldVoteValue = 1
 		} else if existingVote == "downvote" {
 			oldVoteValue = -1
 		}
-		scoreDiff := voteValue - oldVoteValue
 
-		_, err = tx.Exec("UPDATE posts SET post_score = post_score + $1 WHERE post_id = $2", scoreDiff, v.PostID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score"})
-			return
+		if existingVote == v.Vote {
+			// Same vote again — toggle it off (remove vote)
+			_, err = tx.Exec("DELETE FROM post_votes WHERE post_id = $1 AND user_id = $2", v.PostID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove vote"})
+				return
+			}
+
+			_, err = tx.Exec("UPDATE posts SET post_score = post_score - $1 WHERE post_id = $2", oldVoteValue, v.PostID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score"})
+				return
+			}
+		} else {
+			// Different vote — change it
+			_, err = tx.Exec("UPDATE post_votes SET vote = $1 WHERE post_id = $2 AND user_id = $3", v.Vote, v.PostID, userID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update vote"})
+				return
+			}
+
+			scoreDiff := voteValue - oldVoteValue
+			_, err = tx.Exec("UPDATE posts SET post_score = post_score + $1 WHERE post_id = $2", scoreDiff, v.PostID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update score"})
+				return
+			}
 		}
 	} else {
 		// New vote - insert and update score
@@ -88,7 +102,19 @@ func (h *Handler) VotePost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Vote recorded"})
+	// Return the resulting vote state so the frontend can update
+	var newScore int64
+	_ = h.db.QueryRow("SELECT post_score FROM posts WHERE post_id = $1", v.PostID).Scan(&newScore)
+
+	// Check if a vote still exists after the operation
+	var resultVote string
+	err = h.db.QueryRow("SELECT vote FROM post_votes WHERE post_id = $1 AND user_id = $2", v.PostID, userID).Scan(&resultVote)
+	if err != nil {
+		// Vote was removed
+		c.JSON(http.StatusOK, gin.H{"message": "Vote removed", "vote": nil, "score": newScore})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Vote recorded", "vote": resultVote, "score": newScore})
 }
 
 // GetVotes returns all votes for a post

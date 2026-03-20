@@ -73,7 +73,7 @@ export default function SearchPage() {
           {results.map((sn) => (
             <Link
               key={sn.subnodditId}
-              href={`/s/${sn.subnodditName}`}
+              href={`/n/${sn.subnodditName}`}
               className="bg-gray-900 rounded-lg p-6 hover:bg-gray-800 transition"
             >
               <h2 className="text-2xl font-bold mb-2 text-orange-500">

@@ -14,7 +14,16 @@ jobs:
       run:
         working-directory: backend-go
     env:
-      JWT_SECRET: dGVzdC1zZWNyZXQtZm9yLWNpLXBpcGVsaW5l
+      # Required for config validation
+      FRONTEND_URL: http://localhost:8081
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: testuser
+      DB_PASSWORD: testpass
+      DB_NAME: testdb
+      # Optional - Clerk (can be empty for tests)
+      CLERK_SECRET_KEY: ""
+      CLERK_DEFAULT_ROLE: user
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +32,19 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: backend-go/go.sum
 
+      - name: Build
+        run: go build -v ./cmd/api
+
       - name: Run tests
-        run: go test ./... -v -count=1
+        run: go test ./... -v -count=1 -coverprofile=coverage.out
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./backend-go/coverage.out
+          flags: backend
+          fail_ci_if_error: false
 
   frontend:
     name: Next.js Tests
@@ -34,6 +54,7 @@ jobs:
         working-directory: noddit-next
     env:
       NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -47,4 +68,12 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./noddit-next/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false

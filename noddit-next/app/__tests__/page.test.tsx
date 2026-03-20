@@ -30,7 +30,8 @@ describe("Home Page", () => {
     api.get.mockReturnValue(new Promise(() => {})); // Never resolves
     render(<Home />);
 
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    // Check for skeleton loader instead of text
+    expect(document.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
   test("renders popular posts", async () => {
@@ -76,7 +77,7 @@ describe("Home Page", () => {
     render(<Home />);
 
     await waitFor(() => {
-      expect(screen.getByText("n/golang")).toBeInTheDocument();
+      expect(screen.getByText("/n/golang")).toBeInTheDocument();
       expect(screen.getByText("Go programming")).toBeInTheDocument();
     });
   });
@@ -87,7 +88,7 @@ describe("Home Page", () => {
     render(<Home />);
 
     await waitFor(() => {
-      expect(screen.getByText(/no popular posts today/i)).toBeInTheDocument();
+      expect(screen.getByText(/there doesn't seem to be anything here/i)).toBeInTheDocument();
     });
   });
 
@@ -97,8 +98,8 @@ describe("Home Page", () => {
     render(<Home />);
 
     await waitFor(() => {
-      expect(screen.getByText("Create Post")).toBeInTheDocument();
-      expect(screen.getByText("Create Community")).toBeInTheDocument();
+      expect(screen.getByText("Submit a new link")).toBeInTheDocument();
+      expect(screen.getByText("Submit a new text post")).toBeInTheDocument();
     });
   });
 });

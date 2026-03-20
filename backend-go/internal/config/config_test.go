@@ -54,8 +54,7 @@ func TestLoad_DefaultValues(t *testing.T) {
 	assert.Equal(t, "disable", cfg.DBSSLMode)
 	assert.Equal(t, 25, cfg.DBMaxOpenConns)
 	assert.Equal(t, 5, cfg.DBMaxIdleConns)
-	assert.Equal(t, "user", cfg.DefaultUserRole)
-	assert.Equal(t, "1", cfg.DefaultFavoriteSubnodditID)
+	assert.Equal(t, "user", cfg.ClerkDefaultRole)
 }
 
 func TestLoad_MissingRequiredVars(t *testing.T) {

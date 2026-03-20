@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/clerk/clerk-sdk-go/v2"
 	"github.com/clerk/clerk-sdk-go/v2/jwt"
@@ -13,16 +14,34 @@ type ClerkClaims struct {
 	clerk.SessionClaims
 }
 
-// ValidateClerkToken validates a Clerk JWT token and returns the claims
+// ValidateClerkToken validates a Clerk JWT token and returns the claims.
+// Uses the Decode → GetJSONWebKey → Verify pattern per Clerk SDK v2 docs.
+// clerk.SetKey() must be called before this function is used.
 func ValidateClerkToken(tokenString string) (*ClerkClaims, error) {
-	// Verify the token using Clerk's JWT verification
-	// Clerk will automatically fetch the JWKS from their servers for verification
-	// This works in both keyless mode and production
 	ctx := context.Background()
-	claims, err := jwt.Verify(ctx, &jwt.VerifyParams{
+
+	// Step 1: Decode the token to extract the Key ID
+	decoded, err := jwt.Decode(ctx, &jwt.DecodeParams{
 		Token: tokenString,
-		// No JWK or JWKSClient needed - Clerk SDK will use default backend
-		// to fetch public keys for verification
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode Clerk token: %w", err)
+	}
+
+	// Step 2: Fetch the JSON Web Key for this token's Key ID
+	jwk, err := jwt.GetJSONWebKey(ctx, &jwt.GetJSONWebKeyParams{
+		KeyID: decoded.KeyID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Clerk JWK: %w", err)
+	}
+
+	// Step 3: Verify the token with the JWK
+	// Add 60 seconds of leeway to handle clock skew between Docker containers and Clerk servers
+	claims, err := jwt.Verify(ctx, &jwt.VerifyParams{
+		Token:  tokenString,
+		JWK:    jwk,
+		Leeway: 60 * time.Second,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify Clerk token: %w", err)
@@ -31,9 +50,8 @@ func ValidateClerkToken(tokenString string) (*ClerkClaims, error) {
 	return &ClerkClaims{SessionClaims: *claims}, nil
 }
 
-// GetUsername extracts username from Clerk claims
-// Clerk stores username in the session claims
+// GetUsername extracts the Clerk user ID from claims.
+// Note: claims.Subject is the Clerk user ID (e.g. "user_2abc..."), not a username.
 func GetUsername(claims *ClerkClaims) string {
-	// Clerk provides the user ID in the Subject field
 	return claims.Subject
 }

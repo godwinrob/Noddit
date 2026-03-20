@@ -24,12 +24,8 @@ type Config struct {
 	DBMaxIdleConns int
 
 	// Clerk
-	ClerkSecretKey string
-
-	// User defaults
-	DefaultUserRole             string
-	DefaultFavoriteSubnodditID  string
-	ClerkDefaultRole            string
+	ClerkSecretKey   string
+	ClerkDefaultRole string
 }
 
 // Load reads configuration from environment variables and validates them
@@ -49,13 +45,9 @@ func Load() (*Config, error) {
 		DBMaxOpenConns: getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
 		DBMaxIdleConns: getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
 
-		// Clerk (optional for keyless mode)
-		ClerkSecretKey: os.Getenv("CLERK_SECRET_KEY"),
-
-		// User defaults
-		DefaultUserRole:            getEnv("DEFAULT_USER_ROLE", "user"),
-		DefaultFavoriteSubnodditID: getEnv("DEFAULT_FAVORITE_SUBNODDIT_ID", "1"),
-		ClerkDefaultRole:           getEnv("CLERK_DEFAULT_ROLE", "user"),
+		// Clerk
+		ClerkSecretKey:   os.Getenv("CLERK_SECRET_KEY"),
+		ClerkDefaultRole: getEnv("CLERK_DEFAULT_ROLE", "user"),
 	}
 
 	// Validate required configuration
@@ -117,8 +109,6 @@ func (c *Config) LogConfig() {
 	log.Printf("DB Max Open Connections: %d", c.DBMaxOpenConns)
 	log.Printf("DB Max Idle Connections: %d", c.DBMaxIdleConns)
 	log.Printf("Clerk Secret Key: %s", maskSecret(c.ClerkSecretKey))
-	log.Printf("Default User Role: %s", c.DefaultUserRole)
-	log.Printf("Default Favorite Subnoddit ID: %s", c.DefaultFavoriteSubnodditID)
 	log.Printf("Clerk Default Role: %s", c.ClerkDefaultRole)
 	log.Println("=================================")
 }

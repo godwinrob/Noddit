@@ -4,6 +4,22 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
+import { useNodditUser } from "@/components/ClerkTokenProvider";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 interface Subnoddit {
   subnodditId: number;
@@ -20,7 +36,8 @@ export default function SubmitPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
+  const { username: nodditUsername } = useNodditUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -75,7 +92,7 @@ export default function SubmitPage() {
           title,
           body,
           imageAddress: imageAddress || null,
-          username: user?.username || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || '',
+          username: nodditUsername,
           subnodditId: parseInt(subnodditId),
         },
         true
@@ -86,13 +103,17 @@ export default function SubmitPage() {
         (s) => s.subnodditId === parseInt(subnodditId)
       );
 
+      toast.success("Post created successfully!");
+
       if (subnoddit && post.postId) {
-        router.push(`/s/${subnoddit.subnodditName}/${post.postId}`);
+        router.push(`/n/${subnoddit.subnodditName}/${post.postId}`);
       } else {
         router.push("/");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create post");
+      const errorMessage = err instanceof Error ? err.message : "Failed to create post";
+      setError(errorMessage);
+      toast.error(errorMessage);
       setLoading(false);
     }
   };
@@ -103,111 +124,124 @@ export default function SubmitPage() {
 
   return (
     <div className="max-w-3xl mx-auto mt-8">
-      <div className="bg-gray-900 rounded-lg p-8">
-        <h1 className="text-3xl font-bold mb-6">Create a Post</h1>
+      <Card className="bg-gray-900 border-gray-800">
+        <CardHeader>
+          <CardTitle className="text-3xl">Create a Post</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500 text-red-500 rounded p-3 mb-4">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="community" className="block text-sm font-medium mb-2">
-              Choose a community
-            </label>
-            <select
-              id="community"
+          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="community">Choose a community</Label>
+            <Select
               value={subnodditId}
-              onChange={(e) => setSubnodditId(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+              onValueChange={(value) => value && setSubnodditId(value)}
               required
             >
-              {subnoddits.map((sn) => (
-                <option key={sn.subnodditId} value={sn.subnodditId}>
-                  n/{sn.subnodditName}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="bg-gray-800 border-gray-700">
+                <SelectValue placeholder="Select a community" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                {subnoddits.map((sn) => (
+                  <SelectItem key={sn.subnodditId} value={sn.subnodditId.toString()}>
+                    n/{sn.subnodditName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-2">
-              Title
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            <Input
               id="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="An interesting title"
               maxLength={100}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+              className="bg-gray-800 border-gray-700 focus:border-orange-500"
               required
             />
-            <p className="text-sm text-gray-400 mt-1">{title.length}/100</p>
+            <p className="text-sm text-gray-400">{title.length}/100</p>
           </div>
 
-          <div>
-            <label htmlFor="body" className="block text-sm font-medium mb-2">
-              Text
-            </label>
-            <textarea
+          <div className="space-y-2">
+            <Label htmlFor="body">Text</Label>
+            <Textarea
               id="body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="What are your thoughts?"
               rows={8}
               maxLength={2000}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+              className="bg-gray-800 border-gray-700 focus:border-orange-500 resize-none"
               required
             />
-            <p className="text-sm text-gray-400 mt-1">{body.length}/2000</p>
+            <p className="text-sm text-gray-400">{body.length}/2000</p>
           </div>
 
-          <div>
-            <label htmlFor="image" className="block text-sm font-medium mb-2">
-              Image URL (optional)
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="image">Image URL (optional)</Label>
+            <Input
               id="image"
               type="url"
               value={imageAddress}
               onChange={(e) => setImageAddress(e.target.value)}
               placeholder="https://example.com/image.jpg"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-orange-500"
+              className="bg-gray-800 border-gray-700 focus:border-orange-500"
             />
           </div>
 
           <div className="flex gap-3 pt-4">
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 text-white font-semibold py-3 px-4 rounded transition"
+              className="flex-1 bg-orange-600 hover:bg-orange-700"
             >
               {loading ? "Posting..." : "Post"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => router.back()}
-              className="px-6 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded transition"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="bg-gray-900 rounded-lg p-6 mt-4">
-        <h2 className="font-semibold mb-2">Posting Guidelines</h2>
-        <ul className="text-sm text-gray-400 space-y-1">
-          <li>• Be respectful and civil</li>
-          <li>• Stay on topic for the community</li>
-          <li>• No spam or self-promotion</li>
-          <li>• Use descriptive titles</li>
-        </ul>
-      </div>
+      <Card className="bg-gray-900 border-gray-800 mt-4">
+        <CardContent className="pt-6">
+          <h2 className="font-semibold mb-3">Posting Guidelines</h2>
+          <Separator className="mb-3" />
+          <ul className="text-sm text-gray-400 space-y-2">
+            <li className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">•</span>
+              <span>Be respectful and civil</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">•</span>
+              <span>Stay on topic for the community</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">•</span>
+              <span>No spam or self-promotion</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-orange-500 mt-0.5">•</span>
+              <span>Use descriptive titles</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

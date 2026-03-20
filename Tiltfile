@@ -13,6 +13,21 @@ groups = {
 to_run = cfg.get('to-run', ['backend', 'frontend'])
 resources = [r for r in to_run for r in groups.get(r, [r])]
 
+# Read .env file for build args (NEXT_PUBLIC_* must be present at build time)
+def read_dotenv(path):
+    result = {}
+    content = str(read_file(path, ''))
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' in line:
+            key, _, value = line.partition('=')
+            result[key.strip()] = value.strip()
+    return result
+
+env = read_dotenv('./.env')
+
 # Load docker-compose
 docker_compose('./docker-compose.yml')
 
@@ -22,7 +37,7 @@ if 'postgres' in resources:
         'postgres',
         labels=['database'],
         links=[
-            link('postgres://postgres:postgres1@localhost:5432/userdb', 'Database Connection'),
+            link('postgres://postgres:****@localhost:5432/userdb', 'Database Connection'),
         ],
     )
 
@@ -68,6 +83,10 @@ if 'frontend' in resources:
         'noddit-frontend',
         context='./noddit-next',
         dockerfile='./noddit-next/Dockerfile',
+        build_args={
+            'NEXT_PUBLIC_API_URL': env.get('NEXT_PUBLIC_API_URL', 'http://localhost:8080'),
+            'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY': env.get('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', ''),
+        },
         live_update=[
             sync('./noddit-next', '/app'),
             run(
@@ -117,7 +136,7 @@ print("""
 ╠══════════════════════════════════════════════════════════╣
 ║  Backend:   http://localhost:8080                         ║
 ║  Frontend:  http://localhost:8081                         ║
-║  Database:  postgres://postgres:postgres1@localhost:5432  ║
+║  Database:  postgres://postgres:****@localhost:5432       ║
 ╠══════════════════════════════════════════════════════════╣
 ║  Press SPACE to open the Tilt UI                          ║
 ║  Press 'q' to quit                                        ║

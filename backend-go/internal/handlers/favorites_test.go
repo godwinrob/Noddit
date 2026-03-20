@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/gin-gonic/gin"
 	"github.com/godwinrob/noddit/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,7 +150,7 @@ func TestUnfavoriteSubnoddit_Success(t *testing.T) {
 	h, mock, err := setupMockDB()
 	require.NoError(t, err)
 
-	// Get user ID from username in context
+	// Get user ID from username in request body
 	mock.ExpectQuery("SELECT id FROM users").
 		WithArgs("testuser").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
@@ -161,12 +160,11 @@ func TestUnfavoriteSubnoddit_Success(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	router := setupTestRouter()
-	router.DELETE("/favorite/subnoddit/:subnodditId", func(c *gin.Context) {
-		c.Set("username", "testuser")
-		h.UnfavoriteSubnoddit(c)
-	})
+	router.DELETE("/favorite/subnoddit/:subnodditId", h.UnfavoriteSubnoddit)
 
-	w := performRequest(router, "DELETE", "/favorite/subnoddit/5", nil)
+	w := performRequest(router, "DELETE", "/favorite/subnoddit/5", models.Favorites{
+		Username: "testuser",
+	})
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.NoError(t, mock.ExpectationsWereMet())

@@ -140,12 +140,15 @@ func (h *Handler) UnfavoritePost(c *gin.Context) {
 func (h *Handler) UnfavoriteSubnoddit(c *gin.Context) {
 	subnodditID := c.Param("subnodditId")
 
-	// Get username from context (authenticated user)
-	username, _ := c.Get("username")
+	var f models.Favorites
+	if err := c.ShouldBindJSON(&f); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
 
-	// Get user ID
+	// Get user ID from username
 	var userID int64
-	err := h.db.QueryRow("SELECT id FROM users WHERE UPPER(username) = UPPER($1)", username).Scan(&userID)
+	err := h.db.QueryRow("SELECT id FROM users WHERE UPPER(username) = UPPER($1)", f.Username).Scan(&userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
 		return

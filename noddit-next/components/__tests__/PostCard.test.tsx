@@ -14,6 +14,14 @@ jest.mock("next/link", () => {
   };
 });
 
+jest.mock("@/components/ClerkTokenProvider", () => ({
+  useNodditUser: jest.fn(() => ({
+    username: "testuser",
+    userId: 1,
+    isReady: true,
+  })),
+}));
+
 jest.mock("@/lib/api", () => ({
   api: {
     get: jest.fn().mockResolvedValue([]),
@@ -65,7 +73,7 @@ describe("PostCard", () => {
     render(<PostCard post={mockPost} />);
 
     const link = screen.getByText("Test Post Title").closest("a");
-    expect(link).toHaveAttribute("href", "/s/golang/1");
+    expect(link).toHaveAttribute("href", "/n/golang/1");
   });
 
   test("shows full body when showFullBody is true", () => {
@@ -75,7 +83,7 @@ describe("PostCard", () => {
   });
 
   test("upvote button calls API and updates score", async () => {
-    api.post.mockResolvedValueOnce({});
+    api.post.mockResolvedValueOnce({ vote: "upvote", score: 43 });
     const user = userEvent.setup();
 
     render(<PostCard post={mockPost} />);
@@ -102,7 +110,7 @@ describe("PostCard", () => {
   });
 
   test("vote buttons disabled after voting", async () => {
-    api.post.mockResolvedValueOnce({});
+    api.post.mockReturnValueOnce(new Promise(() => {})); // Never resolves — keeps isVoting=true
     const user = userEvent.setup();
 
     render(<PostCard post={mockPost} />);

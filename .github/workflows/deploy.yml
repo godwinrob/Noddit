@@ -1,0 +1,105 @@
+name: Deploy to GCP e2-micro
+
+on:
+  push:
+    branches:
+      - main
+      - deployment  # Current branch
+  workflow_dispatch:  # Allow manual deployment
+
+env:
+  VM_PROJECT_PATH: /home/deploy/noddit
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Production VM
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync files to VM
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.VM_PORT }}" \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude '.env.local' \
+            --exclude 'postgres_data' \
+            --exclude '.next' \
+            --exclude 'dist' \
+            --exclude 'build' \
+            backend-go/ \
+            noddit-next/ \
+            docker-compose.production.yml \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:${{ env.VM_PROJECT_PATH }}/
+
+      - name: Deploy to VM
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.VM_PORT }} ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'ENDSSH'
+            set -e
+
+            # Navigate to project directory
+            cd ${{ env.VM_PROJECT_PATH }}
+
+            # Ensure docker-compose.yml exists
+            if [ ! -f docker-compose.yml ]; then
+              cp docker-compose.production.yml docker-compose.yml
+            fi
+
+            echo "🛑 Stopping existing containers..."
+            docker-compose down || true
+
+            echo "🧹 Cleaning up old images..."
+            docker image prune -af --filter "until=24h" || true
+
+            echo "🔨 Building containers..."
+            docker-compose build --no-cache
+
+            echo "🚀 Starting containers..."
+            docker-compose up -d
+
+            echo "⏳ Waiting for containers to be healthy..."
+            sleep 15
+
+            echo "📊 Container status:"
+            docker-compose ps
+
+            echo "📝 Recent logs:"
+            docker-compose logs --tail=50
+          ENDSSH
+
+      - name: Health check
+        run: |
+          echo "⏳ Waiting for services to be ready..."
+          sleep 20
+
+          echo "🏥 Checking backend health..."
+          curl -f http://${{ secrets.VM_HOST }}:8080/api/public/subnoddits || {
+            echo "❌ Backend health check failed!"
+            exit 1
+          }
+
+          echo "✅ Backend is healthy!"
+
+          echo "🏥 Checking frontend health..."
+          curl -f http://${{ secrets.VM_HOST }}:8081/ || {
+            echo "❌ Frontend health check failed!"
+            exit 1
+          }
+
+          echo "✅ Frontend is healthy!"
+          echo "🎉 Deployment completed successfully!"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

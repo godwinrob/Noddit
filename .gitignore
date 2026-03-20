@@ -7,8 +7,13 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 **/.env
 **/.env.local
+
+# Deployment secrets (template is committed)
+.env.production
+!.env.production.template
 
 # Dependencies
 node_modules/

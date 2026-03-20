@@ -47,7 +47,7 @@ export default function CreateSubnodditPage() {
         true
       );
 
-      router.push(`/s/${formattedName}`);
+      router.push(`/n/${formattedName}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create community");
       setLoading(false);

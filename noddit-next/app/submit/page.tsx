@@ -106,7 +106,7 @@ export default function SubmitPage() {
       toast.success("Post created successfully!");
 
       if (subnoddit && post.postId) {
-        router.push(`/s/${subnoddit.subnodditName}/${post.postId}`);
+        router.push(`/n/${subnoddit.subnodditName}/${post.postId}`);
       } else {
         router.push("/");
       }

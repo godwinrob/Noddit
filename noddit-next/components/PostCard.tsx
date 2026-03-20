@@ -214,7 +214,7 @@ export default function PostCard({
           {/* Metadata */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <Badge variant="secondary" className="bg-orange-900/30 text-orange-400 hover:bg-orange-900/50">
-              <Link href={`/s/${post.subnodditName}`}>
+              <Link href={`/n/${post.subnodditName}`}>
                 n/{post.subnodditName}
               </Link>
             </Badge>
@@ -242,7 +242,7 @@ export default function PostCard({
               <p className="text-gray-300 whitespace-pre-wrap">{post.body}</p>
             </>
           ) : (
-            <Link href={`/s/${post.subnodditName}/${post.postId}`}>
+            <Link href={`/n/${post.subnodditName}/${post.postId}`}>
               <h2 className="text-xl font-semibold mb-2 hover:text-orange-500 transition">
                 {post.title}
               </h2>

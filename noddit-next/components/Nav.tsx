@@ -91,7 +91,7 @@ export default function Nav() {
                     {favorites.map((fav) => (
                       <DropdownMenuItem key={fav.subnodditName}>
                         <Link
-                          href={`/s/${fav.subnodditName}`}
+                          href={`/n/${fav.subnodditName}`}
                           className="text-gray-300 hover:text-white cursor-pointer w-full"
                         >
                           n/{fav.subnodditName}

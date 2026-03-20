@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import PostCard from "@/components/PostCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import PostCardCompact from "@/components/PostCardCompact";
 
 interface Post {
   postId: number;
@@ -33,7 +28,7 @@ export default function Home() {
   const [newPosts, setNewPosts] = useState<Post[]>([]);
   const [activeSubnoddits, setActiveSubnoddits] = useState<Subnoddit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("popular");
+  const [activeTab, setActiveTab] = useState<"hot" | "new">("hot");
 
   useEffect(() => {
     fetchData();
@@ -46,17 +41,11 @@ export default function Home() {
         api.get<Post[]>("/api/public/recentposts"),
         api.get<Subnoddit[]>("/api/public/subnoddits/active"),
       ]);
-      console.log("Popular posts:", posts);
-      console.log("Recent posts:", newPostsData);
-      console.log("Active subnoddits:", subnoddits);
       setPopularPosts(posts);
       setNewPosts(newPostsData);
       setActiveSubnoddits(subnoddits);
     } catch (error) {
       console.error("Failed to fetch data:", error);
-      if (error instanceof Error) {
-        console.error("Error message:", error.message);
-      }
     } finally {
       setLoading(false);
     }
@@ -64,127 +53,127 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-4">
-          <Skeleton className="h-12 w-64 bg-gray-800" />
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="bg-gray-900 border-gray-800">
-              <CardContent className="p-4">
-                <Skeleton className="h-24 w-full bg-gray-800" />
-              </CardContent>
-            </Card>
-          ))}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <div className="bg-gray-800/50 h-10 mb-2 animate-pulse" />
+          <div className="space-y-1">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-900 border-l-4 border-gray-700 p-2">
+                <div className="bg-gray-800/50 h-16 animate-pulse" />
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="space-y-6">
-          <Card className="bg-gray-900 border-gray-800">
-            <CardContent className="p-6">
-              <Skeleton className="h-32 w-full bg-gray-800" />
-            </CardContent>
-          </Card>
+        <div className="w-80">
+          <div className="bg-gray-900 border border-gray-700 p-3">
+            <div className="bg-gray-800/50 h-32 animate-pulse" />
+          </div>
         </div>
       </div>
     );
   }
 
+  const currentPosts = activeTab === "hot" ? popularPosts : newPosts;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div className="flex gap-4">
       {/* Main content */}
-      <div className="md:col-span-2">
-        <h1 className="text-4xl font-bold mb-6">Noddit</h1>
+      <div className="flex-1">
+        {/* Tab navigation - old reddit style */}
+        <div className="bg-gray-900/50 border-b border-gray-700 mb-2 px-2">
+          <div className="flex gap-1 text-sm">
+            <button
+              onClick={() => setActiveTab("hot")}
+              className={`px-3 py-2 ${
+                activeTab === "hot"
+                  ? "text-orange-500 border-b-2 border-orange-500"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              hot
+            </button>
+            <button
+              onClick={() => setActiveTab("new")}
+              className={`px-3 py-2 ${
+                activeTab === "new"
+                  ? "text-orange-500 border-b-2 border-orange-500"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              new
+            </button>
+          </div>
+        </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800/50">
-            <TabsTrigger value="popular">Popular</TabsTrigger>
-            <TabsTrigger value="new">New</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="popular" className="mt-6">
-            {popularPosts.length === 0 ? (
-              <Card className="bg-gray-900 border-gray-800 p-12 text-center">
-                <p className="text-gray-400 mb-4">No popular posts today</p>
-                <Link href="/submit">
-                  <Button className="bg-orange-600 hover:bg-orange-700">
-                    Create the first post
-                  </Button>
-                </Link>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {popularPosts.map((post) => (
-                  <PostCard key={post.postId} post={post} onRefresh={fetchData} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="new" className="mt-6">
-            {newPosts.length === 0 ? (
-              <Card className="bg-gray-900 border-gray-800 p-12 text-center">
-                <p className="text-gray-400 mb-4">No posts yet</p>
-                <Link href="/submit">
-                  <Button className="bg-orange-600 hover:bg-orange-700">
-                    Create the first post
-                  </Button>
-                </Link>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {newPosts.map((post) => (
-                  <PostCard key={post.postId} post={post} onRefresh={fetchData} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Posts */}
+        {currentPosts.length === 0 ? (
+          <div className="bg-gray-900 border border-gray-700 p-8 text-center">
+            <p className="text-gray-400 mb-4">there doesn't seem to be anything here</p>
+            <Link href="/submit" className="text-blue-400 hover:underline text-sm">
+              create a new post
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-[1px]">
+            {currentPosts.map((post) => (
+              <PostCardCompact key={post.postId} post={post} onRefresh={fetchData} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Sidebar */}
-      <div className="space-y-6">
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-xl">Active Communities</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeSubnoddits.map((sn, index) => (
-              <div key={sn.subnodditId}>
-                {index > 0 && <Separator className="my-3" />}
+      {/* Sidebar - old reddit style */}
+      <div className="w-80 space-y-3">
+        {/* Submit buttons */}
+        <div className="bg-gray-900 border border-gray-700">
+          <div className="bg-gradient-to-r from-orange-600 to-orange-500 p-3">
+            <h3 className="font-bold text-white">Create</h3>
+          </div>
+          <div className="p-3 space-y-2">
+            <Link href="/submit" className="block">
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 text-sm">
+                Submit a new link
+              </button>
+            </Link>
+            <Link href="/submit" className="block">
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 text-sm">
+                Submit a new text post
+              </button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Communities */}
+        <div className="bg-gray-900 border border-gray-700">
+          <div className="bg-gradient-to-r from-orange-600 to-orange-500 p-2">
+            <h3 className="font-bold text-sm text-white">ACTIVE COMMUNITIES</h3>
+          </div>
+          <div className="p-3">
+            {activeSubnoddits.length === 0 ? (
+              <p className="text-xs text-gray-400">No communities yet</p>
+            ) : (
+              <div className="space-y-2">
+                {activeSubnoddits.slice(0, 10).map((sn) => (
+                  <div key={sn.subnodditId} className="text-xs">
+                    <Link
+                      href={`/n/${sn.subnodditName}`}
+                      className="text-blue-400 hover:underline font-bold"
+                    >
+                      /n/{sn.subnodditName}
+                    </Link>
+                    <p className="text-gray-400 mt-0.5">{sn.subnodditDescription}</p>
+                  </div>
+                ))}
                 <Link
-                  href={`/s/${sn.subnodditName}`}
-                  className="block hover:text-orange-500 transition"
+                  href="/subnoddits"
+                  className="text-blue-400 hover:underline text-xs block mt-3"
                 >
-                  <div className="font-semibold">n/{sn.subnodditName}</div>
-                  <div className="text-sm text-gray-400">{sn.subnodditDescription}</div>
+                  view more »
                 </Link>
               </div>
-            ))}
-
-            <Separator className="my-3" />
-            <Link
-              href="/subnoddits"
-              className="block text-orange-500 hover:underline text-sm"
-            >
-              View all communities →
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-xl">Create</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Link href="/submit" className="block">
-              <Button className="w-full bg-orange-600 hover:bg-orange-700">
-                Create Post
-              </Button>
-            </Link>
-            <Link href="/subnoddits/create" className="block">
-              <Button variant="secondary" className="w-full">
-                Create Community
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

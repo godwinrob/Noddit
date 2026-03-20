@@ -73,7 +73,7 @@ describe("PostCard", () => {
     render(<PostCard post={mockPost} />);
 
     const link = screen.getByText("Test Post Title").closest("a");
-    expect(link).toHaveAttribute("href", "/s/golang/1");
+    expect(link).toHaveAttribute("href", "/n/golang/1");
   });
 
   test("shows full body when showFullBody is true", () => {

@@ -21,6 +21,19 @@ jest.mock("next/link", () => {
   };
 });
 
+jest.mock("next/image", () => {
+  return function MockImage({ alt, src }: { alt: string; src: string }) {
+    return <img alt={alt} src={src} />;
+  };
+});
+
+jest.mock("@clerk/nextjs", () => ({
+  useUser: jest.fn(() => ({ user: { username: "testuser" }, isSignedIn: true, isLoaded: true })),
+  SignInButton: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  SignUpButton: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  UserButton: () => <div data-testid="user-button" />,
+}));
+
 jest.mock("@/lib/api", () => ({
   api: {
     get: jest.fn().mockResolvedValue([]),
@@ -46,8 +59,8 @@ describe("Nav", () => {
   test("renders logo link", () => {
     render(<Nav />);
 
-    expect(screen.getByText("Noddit")).toBeInTheDocument();
-    expect(screen.getByText("Noddit").closest("a")).toHaveAttribute("href", "/");
+    expect(screen.getByAltText("Noddit Logo")).toBeInTheDocument();
+    expect(screen.getByAltText("Noddit Logo").closest("a")).toHaveAttribute("href", "/");
   });
 
   test("renders communities link", () => {

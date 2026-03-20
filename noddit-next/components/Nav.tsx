@@ -82,7 +82,7 @@ export default function Nav() {
 
               {isSignedIn && favorites.length > 0 && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger>
+                  <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="text-gray-300 hover:text-white">
                       Favorites ▾
                     </Button>

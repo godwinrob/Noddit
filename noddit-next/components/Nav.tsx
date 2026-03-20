@@ -82,10 +82,8 @@ export default function Nav() {
 
               {isSignedIn && favorites.length > 0 && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="text-gray-300 hover:text-white">
-                      Favorites ▾
-                    </Button>
+                  <DropdownMenuTrigger className="text-gray-300 hover:text-white px-3 py-2 rounded transition">
+                    Favorites ▾
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-48 bg-gray-800 border-gray-700">
                     {favorites.map((fav) => (
